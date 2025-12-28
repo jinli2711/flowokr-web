@@ -1,37 +1,39 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import gsap from 'gsap'
 
 const router = useRouter()
+const isMobile = ref(false)
 
-// 核心配置：流光粒子 + 鼠标旋转交互
+const checkDeviceType = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
 const particlesOptions = {
   background: {
-    color: { value: '#020617' }, // 深邃星空底色
+    color: { value: '#020617' },
   },
-  fpsLimit: 120,
+  fpsLimit: isMobile.value ? 60 : 120,
   interactivity: {
     events: {
       onHover: {
-        enable: true,
-        mode: 'connect', // 悬停时增强连接感
+        enable: !isMobile.value,
+        mode: 'connect',
       },
     },
     modes: {
-      // 鼠标旋转交互的关键配置
       connect: {
-        distance: 250,
-        links: { opacity: 0.8 },
-        radius: 180,
+        distance: isMobile.value ? 150 : 250,
+        links: { opacity: isMobile.value ? 0.5 : 0.8 },
+        radius: isMobile.value ? 120 : 180,
       },
-      grab: { distance: 200 },
+      grab: { distance: isMobile.value ? 150 : 200 },
     },
   },
   particles: {
-    // 1. 流光颜色配置
     color: {
-      value: ['#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'], // 多色流光
+      value: ['#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'],
       animation: {
         enable: true,
         speed: 5,
@@ -40,56 +42,54 @@ const particlesOptions = {
     },
     links: {
       color: 'random',
-      distance: 150,
+      distance: isMobile.value ? 100 : 150,
       enable: true,
-      opacity: 0.1, // 让背景变暗
+      opacity: 0.1,
       width: 1,
-      triangles: { enable: true, opacity: 0.05 }, // 增加三角形网格感
+      triangles: { enable: true, opacity: 0.05 },
     },
     move: {
       enable: true,
-      speed: { min: 1, max: 2 }, // 基础游走速度：数值越大，粒子整体飞行越快
+      speed: { min: isMobile.value ? 0.5 : 1, max: isMobile.value ? 1.5 : 2 },
       direction: 'none',
       outModes: { default: 'out' },
-      // 2. 增加“跟随鼠标旋转”效果的核心参数
       attract: {
         enable: true,
         rotate: {
-          // 数值越小，旋转拉力越强（粒子会更紧凑地绕着鼠标转）
-          // 建议范围：x 轴 600-3000, y 轴 1200-3000
-          x: 600,
-          y: 1200,
+          x: isMobile.value ? 1000 : 600,
+          y: isMobile.value ? 2000 : 1200,
         },
       },
       spin: {
-        enable: true, // 开启粒子自旋
-        acceleration: 0.1, // 旋转加速度：数值越大，旋转时的“甩动”感越明显，可以试着修改为0.2，0.5
+        enable: true,
+        acceleration: 0.1,
       },
     },
     number: {
       density: {
         enable: true,
-        area: 1000, // 建议保持在 800-1000，这代表每 800 像素区域内的粒子基数
+        area: 1000,
       },
-      value: 100, // 粒子密度：如果觉得太稀疏可以改为 150-200，觉得太乱可以降到 50-80
+      value: isMobile.value ? 70 : 120,
     },
     opacity: {
       value: { min: 0.3, max: 0.7 },
       animation: { enable: true, speed: 1, sync: false },
     },
     size: {
-      value: { min: 1, max: 4 },
+      value: { min: isMobile.value ? 0.5 : 1, max: isMobile.value ? 3 : 4 },
       animation: { enable: true, speed: 3, sync: false },
     },
   },
-  // 3. 启用鼠标跟随偏移
   mouse: {
-    enable: true,
+    enable: !isMobile.value,
   },
 }
 
 onMounted(() => {
-  // GSAP 进场动画
+  checkDeviceType()
+  window.addEventListener('resize', checkDeviceType)
+
   const tl = gsap.timeline()
   tl.from('.welcome-title', {
     duration: 2,
@@ -108,16 +108,25 @@ onMounted(() => {
       },
       '-=1.2',
     )
-    .from(
+    // 使用 fromTo 确保起始和结束状态明确，防止按钮消失
+    .fromTo(
       '.action-btn',
       {
-        duration: 1.2,
         scale: 0.5,
-        opacity: 0,
+        opacity: 0, // 起始状态：透明
+      },
+      {
+        duration: 1.2,
+        scale: 1,
+        opacity: 1, // 结束状态：完全可见
         ease: 'back.out(1.7)',
       },
       '-=1',
     )
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', checkDeviceType)
+  })
 })
 </script>
 
@@ -129,7 +138,7 @@ onMounted(() => {
       <h1 class="welcome-title">FlowOKR</h1>
       <p class="welcome-sub">任务驱动的智能协作与OKR系统</p>
       <div class="action-buttons">
-        <button @click="router.push('/')" class="cyber-button">
+        <button @click="router.push('/')" class="cyber-button action-btn">
           <span class="btn-content">开始体验</span>
         </button>
       </div>
@@ -139,14 +148,19 @@ onMounted(() => {
 
 <style scoped>
 .welcome-container {
-  height: 100vh;
+  /* 使用 fixed 定位脱离父级 padding，修复视觉偏右问题 */
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100vw;
+  height: 100vh;
+  
   background: #020617;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  position: relative;
+  z-index: 999;
 }
 
 #tsparticles {
@@ -157,57 +171,63 @@ onMounted(() => {
 
 .main-content {
   z-index: 10;
-  pointer-events: none; /* 让鼠标事件穿透到粒子层，除非点击按钮 */
+  pointer-events: none;
   text-align: center;
-}
-
-.glass-card {
-  padding: 60px 100px;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .welcome-title {
-  font-size: 7rem; /* 稍微放大，增强视觉冲击力 */
+  font-size: clamp(2rem, 12vw, 7rem);
   font-weight: 900;
-  letter-spacing: 12px;
+  letter-spacing: clamp(4px, 2vw, 12px);
+  /* 使用 text-indent 平衡 letter-spacing 带来的视觉偏差 */
+  text-indent: clamp(4px, 2vw, 12px);
+  
   background: linear-gradient(to bottom, #fff 50%, #64748b);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  /* 增加外发光，防止被背景粒子干扰 */
-  filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.4));
+  filter: drop-shadow(0 0 clamp(8px, 3vw, 15px) rgba(59, 130, 246, 0.4));
   margin: 0;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .welcome-sub {
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 4vw, 1.1rem);
   color: #fff;
-  letter-spacing: 15px;
-  margin-top: 15px;
+  letter-spacing: clamp(4px, 3vw, 15px);
+  text-indent: clamp(4px, 3vw, 15px);
+  margin-top: clamp(10px, 2vh, 15px);
   font-weight: 300;
   opacity: 0.8;
-  /* 文字阴影确保在复杂粒子背景下依然清晰 */
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  max-width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 .action-buttons {
   margin-top: 60px;
-  pointer-events: auto; /* 恢复按钮的点击 */
+  pointer-events: auto; /* 确保按钮区域可点击 */
   display: flex;
-  gap: 20px;
   justify-content: center;
+  width: 100%;
+  /* 确保按钮容器有足够的高度 */
+  min-height: 60px; 
 }
 
-/* 赛博风格按钮 */
+/* 还原 WelcomeView_prev.vue 的按钮样式 */
 .cyber-button {
   position: relative;
   padding: 18px 50px;
   background: rgba(59, 130, 246, 0.1); /* 极低不透明度背景 */
-  backdrop-filter: blur(5px); /* 轻微模糊 */
+  backdrop-filter: blur(5px);
   border: 1px solid rgba(59, 130, 246, 0.5);
   color: #fff;
   font-size: 1.1rem;
@@ -216,27 +236,40 @@ onMounted(() => {
   cursor: pointer;
   overflow: hidden;
   transition: all 0.3s;
-  border-radius: 4px;
+  border-radius: 4px; /* 还原为小圆角 */
+  /* 确保 CSS 层面也是可见的 */
+  opacity: 1; 
 }
 
 .cyber-button:hover {
   background: #3b82f6;
   box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
   transform: translateY(-3px);
-}
-
-.cyber-button.secondary {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.5);
-}
-
-.cyber-button.secondary:hover {
-  background: #8b5cf6;
-  box-shadow: 0 0 40px rgba(139, 92, 246, 0.6);
+  border-color: #3b82f6;
 }
 
 .btn-content {
   position: relative;
   z-index: 2;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .welcome-title {
+    text-indent: clamp(4px, 2vw, 6px);
+  }
+  
+  .welcome-sub {
+    max-width: 90%;
+  }
+  
+  .action-buttons {
+    margin-top: clamp(20px, 6vh, 30px);
+  }
+  
+  .cyber-button {
+    padding: 12px 30px;
+    font-size: 1rem;
+  }
 }
 </style>
